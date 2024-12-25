@@ -1,4 +1,4 @@
-![NetSpeedTray](docs/images/icon.png) NetSpeedTray
+![|24](docs/images/icon.png) NetSpeedTray
 
 一个简单的网速监控工具，显示实时上传和下载速度。
 
