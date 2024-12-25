@@ -12,6 +12,11 @@
     <Title>NetSpeedMonitor</Title>
     <Company>YourCompanyName</Company>
     <Description>Network Speed Monitor Tool</Description>
+    <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\icon.ico" />
+  </ItemGroup>
 
 </Project>
