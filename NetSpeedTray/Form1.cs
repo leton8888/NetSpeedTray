@@ -5,140 +5,100 @@ namespace WinFormsApp1
 {
     public partial class Form1 : Form
     {
-        private NotifyIcon trayIcon = null!;
-        private System.Windows.Forms.Timer updateTimer = null!;
-        private NetworkInterface[] interfaces = null!;
-        private long lastBytesReceived = 0;
-        private long lastBytesSent = 0;
-        private DateTime lastCheckTime;
+        private NotifyIcon notifyIcon1;
+        private System.Windows.Forms.Timer timer1;
+        private NetworkInterface[] interfaces;
+        private Dictionary<string, (long BytesSent, long BytesReceived)> lastValues = new();
 
         public Form1()
         {
             InitializeComponent();
-            InitializeTrayIcon();
-            InitializeNetworkMonitoring();
-
-            // 窗体启动时最小化到托盘
+            
+            // 初始化时就隐藏窗口
             this.WindowState = FormWindowState.Minimized;
             this.ShowInTaskbar = false;
-
-            // 设置应用程序图标
-            this.Icon = new Icon("Resources/icon.ico");
+            this.Hide();
             
-            // 设置托盘图标
-            trayIcon.Icon = new Icon("Resources/icon.ico");
-            // 或者
-            trayIcon.Icon = this.Icon;
-        }
+            // 初始化 NotifyIcon
+            notifyIcon1 = new NotifyIcon();
+            notifyIcon1.Visible = true;
+            
+            // 使用嵌入的资源加载图标
+            using (var stream = GetType().Assembly.GetManifestResourceStream("NetSpeedTray.Resources.icon.ico"))
+            {
+                if (stream != null)
+                {
+                    var icon = new Icon(stream);
+                    this.Icon = icon;
+                    notifyIcon1.Icon = icon;
+                }
+            }
 
-        private void InitializeTrayIcon()
-        {
-
-            trayIcon = new NotifyIcon();
-            trayIcon.Icon = SystemIcons.Application; // 可以替换成自己的图标
-            trayIcon.Visible = true;
-
-            // 创建右键菜单
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("显示", null, ShowForm);
-            menu.Items.Add("退出", null, ExitApplication);
-            trayIcon.ContextMenuStrip = menu;
-
-            // 双击托盘图标显示窗体
-            trayIcon.DoubleClick += (s, e) => ShowForm(s, e);
-        }
-
-        private void InitializeNetworkMonitoring()
-        {
-            // 获取所有网络接口
+            // 初始化网络接口
             interfaces = NetworkInterface.GetAllNetworkInterfaces();
-            lastCheckTime = DateTime.Now;
 
-            // 初始化定时器，每秒更新一次
-            updateTimer = new System.Windows.Forms.Timer();
-            updateTimer.Interval = 1000;
-            updateTimer.Tick += UpdateNetworkSpeed;
-            updateTimer.Start();
+            // 设置定时器
+            timer1 = new System.Windows.Forms.Timer();
+            timer1.Interval = 1000; // 1秒更新一次
+            timer1.Tick += Timer1_Tick;
+            timer1.Start();
+
+            // 设置托盘菜单
+            notifyIcon1.ContextMenuStrip = new ContextMenuStrip();
+            notifyIcon1.ContextMenuStrip.Items.Add("退出", null, Exit_Click);
         }
 
-        private void UpdateNetworkSpeed(object? sender, EventArgs e)
+        private void Timer1_Tick(object? sender, EventArgs e)
         {
-            long currentBytesReceived = 0;
-            long currentBytesSent = 0;
+            long totalBytesReceived = 0;
+            long totalBytesSent = 0;
 
             foreach (NetworkInterface ni in interfaces)
             {
                 if (ni.OperationalStatus == OperationalStatus.Up)
                 {
-                    IPv4InterfaceStatistics stats = ni.GetIPv4Statistics();
-                    currentBytesReceived += stats.BytesReceived;
-                    currentBytesSent += stats.BytesSent;
+                    var stats = ni.GetIPv4Statistics();
+                    
+                    if (!lastValues.ContainsKey(ni.Id))
+                    {
+                        lastValues[ni.Id] = (stats.BytesSent, stats.BytesReceived);
+                        continue;
+                    }
+
+                    var last = lastValues[ni.Id];
+                    var bytesSentSpeed = stats.BytesSent - last.BytesSent;
+                    var bytesReceivedSpeed = stats.BytesReceived - last.BytesReceived;
+
+                    totalBytesSent += bytesSentSpeed;
+                    totalBytesReceived += bytesReceivedSpeed;
+
+                    lastValues[ni.Id] = (stats.BytesSent, stats.BytesReceived);
                 }
             }
 
-            TimeSpan timeDiff = DateTime.Now - lastCheckTime;
-            double seconds = timeDiff.TotalSeconds;
-
-            // 添加更严格的除零保护
-            if (seconds >= 0.001) // 确保至少有 1 毫秒的时间差
-            {
-                // 使用 double 进行计算，避免提前转换为 long
-                double bytesReceivedPerSec = (currentBytesReceived - lastBytesReceived) / seconds;
-                double bytesSentPerSec = (currentBytesSent - lastBytesSent) / seconds;
-
-                // 更新托盘图标提示文本
-                string downloadSpeed = FormatSpeed(bytesReceivedPerSec);
-                string uploadSpeed = FormatSpeed(bytesSentPerSec);
-                trayIcon.Text = $"↓ {downloadSpeed}\n↑ {uploadSpeed}";
-            }
-
-            // 更新上次的值
-            lastBytesReceived = currentBytesReceived;
-            lastBytesSent = currentBytesSent;
-            lastCheckTime = DateTime.Now;
+            string upSpeed = FormatSpeed(totalBytesSent);
+            string downSpeed = FormatSpeed(totalBytesReceived);
+            notifyIcon1.Text = $"↑{upSpeed}/s\n↓{downSpeed}/s";
         }
 
-        private string FormatSpeed(double bytesPerSec)
+        private string FormatSpeed(long bytes)
         {
-            // 转换为 bits per second (1 byte = 8 bits)
-            double bitsPerSec = bytesPerSec * 8;
+            string[] units = { "B", "KB", "MB", "GB" };
+            int unitIndex = 0;
+            double speed = bytes;
 
-            // 定义单位转换阈值
-            const double GB = 1000 * 1000 * 1000;
-            const double MB = 1000 * 1000;
-            const double KB = 1000;
-
-            string formattedSpeed;
-            if (bitsPerSec >= GB)
+            while (speed >= 1024 && unitIndex < units.Length - 1)
             {
-                formattedSpeed = $"{(bitsPerSec / GB):F2} Gbps";
-            }
-            else if (bitsPerSec >= MB)
-            {
-                formattedSpeed = $"{(bitsPerSec / MB):F2} Mbps";
-            }
-            else if (bitsPerSec >= KB)
-            {
-                formattedSpeed = $"{(bitsPerSec / KB):F2} Kbps";
-            }
-            else
-            {
-                formattedSpeed = $"{bitsPerSec:F0} bps";
+                speed /= 1024;
+                unitIndex++;
             }
 
-            return formattedSpeed;
+            return $"{speed:F1}{units[unitIndex]}";
         }
 
-        private void ShowForm(object? sender, EventArgs e)
+        private void Exit_Click(object? sender, EventArgs e)
         {
-            this.Show();
-            this.WindowState = FormWindowState.Normal;
-            this.ShowInTaskbar = true;
-        }
-
-        private void ExitApplication(object? sender, EventArgs e)
-        {
-            trayIcon.Visible = false;
+            notifyIcon1.Visible = false;
             Application.Exit();
         }
 
@@ -147,10 +107,20 @@ namespace WinFormsApp1
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
-                this.WindowState = FormWindowState.Minimized;
-                this.ShowInTaskbar = false;
+                this.Hide();
             }
             base.OnFormClosing(e);
+        }
+
+        protected override void SetVisibleCore(bool value)
+        {
+            // 重写此方法确保窗口初始不可见
+            if (!this.IsHandleCreated)
+            {
+                value = false;
+                CreateHandle();
+            }
+            base.SetVisibleCore(value);
         }
     }
 }
