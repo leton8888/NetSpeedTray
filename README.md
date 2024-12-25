@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ![NetSpeedTray](docs/images/icon.png)  <img src="docs/images/icon.png" width="24" height="24"> NetSpeedTray
+=======
+![](docs/images/icon.png) NetSpeedTray
+>>>>>>> b825570 (docs: update README and project structure [skip ci])
 
 一个简单的网速监控工具，显示实时上传和下载速度。
 
