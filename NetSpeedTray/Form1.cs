@@ -21,6 +21,14 @@ namespace WinFormsApp1
             // 窗体启动时最小化到托盘
             this.WindowState = FormWindowState.Minimized;
             this.ShowInTaskbar = false;
+
+            // 设置应用程序图标
+            this.Icon = new Icon("Resources/icon.ico");
+            
+            // 设置托盘图标
+            trayIcon.Icon = new Icon("Resources/icon.ico");
+            // 或者
+            trayIcon.Icon = this.Icon;
         }
 
         private void InitializeTrayIcon()
