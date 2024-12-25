@@ -27,7 +27,17 @@ jobs:
         [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
       
     - name: Build
-      run: dotnet publish NetSpeedTray/NetSpeedTray.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+      run: |
+        # 显示图标文件是否存在
+        Write-Host "Checking icon file..."
+        if (Test-Path "NetSpeedTray/Resources/icon.ico") {
+            Write-Host "Icon file exists"
+        } else {
+            Write-Host "Icon file not found"
+        }
+        
+        # 编译
+        dotnet publish NetSpeedTray/NetSpeedTray.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -v detailed
         
     - name: Sign
       run: |
