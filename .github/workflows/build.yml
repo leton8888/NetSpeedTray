@@ -3,7 +3,7 @@ name: Build and Sign
 on:
   push:
     tags:
-      - "v*"  # 当推送版本标签时触发
+      - "v*"
 
 jobs:
   build:
@@ -30,7 +30,7 @@ jobs:
     - name: Sign
       run: |
         $certificatePath = Join-Path -Path (Get-Location) -ChildPath "LetonSoft.pfx"
-        & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" sign /f $certificatePath /p "${{ secrets.SIGNING_CERT_PASSWORD }}" /fd SHA256 /t http://timestamp.digicert.com "NetSpeedTray/bin/Release/net6.0-windows/win-x64/publish/NetSpeedTray.exe"
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f $certificatePath /p "${{ secrets.SIGNING_CERT_PASSWORD }}" /fd SHA256 /t http://timestamp.digicert.com "NetSpeedTray/bin/Release/net6.0-windows/win-x64/publish/NetSpeedTray.exe"
         
     - name: Create Release
       uses: softprops/action-gh-release@v1
