@@ -9,6 +9,8 @@ namespace WinFormsApp1
         private System.Windows.Forms.Timer timer1;
         private NetworkInterface[] interfaces;
         private Dictionary<string, (long BytesSent, long BytesReceived)> lastValues = new();
+        private const string StartupRegKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+        private const string AppName = "NetSpeedTray";
 
         public Form1()
         {
@@ -45,7 +47,41 @@ namespace WinFormsApp1
 
             // 设置托盘菜单
             notifyIcon1.ContextMenuStrip = new ContextMenuStrip();
+            var startupItem = new ToolStripMenuItem("开机启动", null, Startup_Click);
+            startupItem.Checked = IsStartupEnabled(); // 检查是否已设置开机启动
+            notifyIcon1.ContextMenuStrip.Items.Add(startupItem);
+            notifyIcon1.ContextMenuStrip.Items.Add(new ToolStripSeparator());
             notifyIcon1.ContextMenuStrip.Items.Add("退出", null, Exit_Click);
+        }
+
+        private bool IsStartupEnabled()
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegKey);
+            return key?.GetValue(AppName) != null;
+        }
+
+        private void Startup_Click(object? sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem menuItem)
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegKey, true);
+                if (key != null)
+                {
+                    if (menuItem.Checked)
+                    {
+                        // 取消开机启动
+                        key.DeleteValue(AppName, false);
+                        menuItem.Checked = false;
+                    }
+                    else
+                    {
+                        // 设置开机启动
+                        string exePath = Application.ExecutablePath;
+                        key.SetValue(AppName, exePath);
+                        menuItem.Checked = true;
+                    }
+                }
+            }
         }
 
         private void Timer1_Tick(object? sender, EventArgs e)
